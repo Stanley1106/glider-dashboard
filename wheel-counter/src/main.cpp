@@ -14,7 +14,7 @@
 #define I2C_SCL            6
 #define DEBOUNCE_MS        100
 #define WHEEL_CIRC_M       0.88f
-#define UPLOAD_INTERVAL_MS 30000
+#define UPLOAD_INTERVAL_MS 10000
 
 #define OLED_WIDTH  128
 #define OLED_HEIGHT 64
@@ -24,11 +24,18 @@ DHT dht(DHT_PIN, DHT22);
 BH1750 lightMeter;
 Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 
+// 計圈變數，只在 main loop 讀寫，不需 mutex
 unsigned long lapCount = 0;
 unsigned long lastTrigger = 0;
 bool lastPin = HIGH;
 
-unsigned long lastUploadMs = 0;
+// 上傳用快照，用 mutex 保護
+portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
+unsigned long snapLaps = 0;
+unsigned long snapDelta = 0;
+float snapDist = 0, snapRpm = 0;
+float snapTemp = 0, snapHum = 0, snapLux = 0;
+
 unsigned long lastUploadLaps = 0;
 
 float lastTemp = 0, lastHum = 0, lastLux = 0, lastRpm = 0;
@@ -37,25 +44,12 @@ void updateDisplay() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-
-  display.setCursor(0, 0);
-  display.printf("Laps: %lu", lapCount);
-
-  display.setCursor(0, 12);
-  display.printf("Dist: %.2f m", lapCount * WHEEL_CIRC_M);
-
-  display.setCursor(0, 24);
-  display.printf("RPM:  %.1f", lastRpm);
-
-  display.setCursor(0, 36);
-  display.printf("T:%.1fC  H:%.0f%%", lastTemp, lastHum);
-
-  display.setCursor(0, 48);
-  display.printf("Lux: %.0f", lastLux);
-
-  display.setCursor(80, 48);
-  display.print(WiFi.status() == WL_CONNECTED ? "WiFi OK" : "No WiFi");
-
+  display.setCursor(0, 0);  display.printf("Laps: %lu", lapCount);
+  display.setCursor(0, 12); display.printf("Dist: %.2f m", lapCount * WHEEL_CIRC_M);
+  display.setCursor(0, 24); display.printf("RPM:  %.1f", lastRpm);
+  display.setCursor(0, 36); display.printf("T:%.1fC  H:%.0f%%", lastTemp, lastHum);
+  display.setCursor(0, 48); display.printf("Lux: %.0f", lastLux);
+  display.setCursor(80, 48); display.print(WiFi.status() == WL_CONNECTED ? "WiFi OK" : "No WiFi");
   display.display();
 }
 
@@ -69,25 +63,51 @@ void connectWiFi() {
   Serial.printf("\nWiFi connected: %s\n", WiFi.localIP().toString().c_str());
 }
 
-void uploadData(unsigned long totalLaps, unsigned long lapsDelta, float distanceM, float rpm,
-                float temp, float hum, float lux) {
-  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+// 背景上傳 task
+void uploadTask(void* param) {
+  connectWiFi();
 
-  HTTPClient http;
-  String url = String(SCRIPT_URL)
-    + "?total_laps="  + totalLaps
-    + "&laps_delta="  + lapsDelta
-    + "&distance_m="  + distanceM
-    + "&rpm="         + rpm
-    + "&temperature=" + temp
-    + "&humidity="    + hum
-    + "&lux="         + lux;
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(UPLOAD_INTERVAL_MS));
 
-  http.begin(url);
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  int code = http.GET();
-  Serial.printf("Upload: HTTP %d  T=%.1f H=%.1f Lux=%.0f\n", code, temp, hum, lux);
-  http.end();
+    // 讀感測器
+    float temp = dht.readTemperature();
+    float hum  = dht.readHumidity();
+    float lux  = lightMeter.readLightLevel();
+    if (isnan(temp)) temp = 0;
+    if (isnan(hum))  hum  = 0;
+    if (lux < 0)     lux  = 0;
+
+    // 取計圈快照
+    portENTER_CRITICAL(&dataMux);
+    unsigned long laps  = lapCount;
+    unsigned long delta = lapCount - lastUploadLaps;
+    lastUploadLaps = lapCount;
+    portEXIT_CRITICAL(&dataMux);
+
+    float rpm = delta * (60000.0f / UPLOAD_INTERVAL_MS);
+
+    // 更新顯示用快取
+    lastTemp = temp; lastHum = hum; lastLux = lux; lastRpm = rpm;
+    updateDisplay();
+
+    // 上傳
+    if (WiFi.status() != WL_CONNECTED) connectWiFi();
+    HTTPClient http;
+    String url = String(SCRIPT_URL)
+      + "?total_laps="  + laps
+      + "&laps_delta="  + delta
+      + "&distance_m="  + (laps * WHEEL_CIRC_M)
+      + "&rpm="         + rpm
+      + "&temperature=" + temp
+      + "&humidity="    + hum
+      + "&lux="         + lux;
+    http.begin(url);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    int code = http.GET();
+    Serial.printf("Upload: HTTP %d  T=%.1f H=%.1f Lux=%.0f\n", code, temp, hum, lux);
+    http.end();
+  }
 }
 
 void setup() {
@@ -103,7 +123,6 @@ void setup() {
     Serial.println("OLED init failed");
   } else {
     display.clearDisplay();
-    display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(0, 0);
     display.print("Connecting WiFi...");
@@ -111,9 +130,11 @@ void setup() {
   }
 
   pinMode(SENSOR_PIN, INPUT_PULLUP);
-  connectWiFi();
+
+  // 上傳 task 跑在背景，stack 8KB，priority 1
+  xTaskCreate(uploadTask, "upload", 8192, NULL, 1, NULL);
+
   Serial.println("Wheel counter ready.");
-  updateDisplay();
 }
 
 void loop() {
@@ -121,8 +142,11 @@ void loop() {
   unsigned long now = millis();
 
   if (currentPin == LOW && lastPin == HIGH && (now - lastTrigger > DEBOUNCE_MS)) {
+    portENTER_CRITICAL(&dataMux);
     lapCount++;
+    portEXIT_CRITICAL(&dataMux);
     lastTrigger = now;
+
     float distance = lapCount * WHEEL_CIRC_M;
     Serial.printf("Laps: %lu  Distance: %.2f m\n", lapCount, distance);
     Serial.printf(">laps:%lu\n", lapCount);
@@ -130,24 +154,5 @@ void loop() {
     updateDisplay();
   }
   lastPin = currentPin;
-
-  if (now - lastUploadMs >= UPLOAD_INTERVAL_MS) {
-    lastTemp = dht.readTemperature();
-    lastHum  = dht.readHumidity();
-    lastLux  = lightMeter.readLightLevel();
-
-    if (isnan(lastTemp)) lastTemp = 0;
-    if (isnan(lastHum))  lastHum  = 0;
-    if (lastLux < 0)     lastLux  = 0;
-
-    unsigned long delta = lapCount - lastUploadLaps;
-    lastRpm = delta * (60000.0f / UPLOAD_INTERVAL_MS);
-
-    uploadData(lapCount, delta, lapCount * WHEEL_CIRC_M, lastRpm, lastTemp, lastHum, lastLux);
-    lastUploadLaps = lapCount;
-    lastUploadMs = now;
-    updateDisplay();
-  }
-
   delay(1);
 }

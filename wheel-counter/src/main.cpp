@@ -29,12 +29,7 @@ unsigned long lapCount = 0;
 unsigned long lastTrigger = 0;
 bool lastPin = HIGH;
 
-// 上傳用快照，用 mutex 保護
 portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
-unsigned long snapLaps = 0;
-unsigned long snapDelta = 0;
-float snapDist = 0, snapRpm = 0;
-float snapTemp = 0, snapHum = 0, snapLux = 0;
 
 unsigned long lastUploadLaps = 0;
 
@@ -91,21 +86,18 @@ void uploadTask(void* param) {
     lastTemp = temp; lastHum = hum; lastLux = lux; lastRpm = rpm;
     updateDisplay();
 
-    // 上傳
+    // 上傳（只送原始資料，Sheets 負責計算其餘欄位）
     if (WiFi.status() != WL_CONNECTED) connectWiFi();
     HTTPClient http;
     String url = String(SCRIPT_URL)
-      + "?total_laps="  + laps
-      + "&laps_delta="  + delta
-      + "&distance_m="  + (laps * WHEEL_CIRC_M)
-      + "&rpm="         + rpm
+      + "?laps_delta="  + delta
       + "&temperature=" + temp
       + "&humidity="    + hum
       + "&lux="         + lux;
     http.begin(url);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     int code = http.GET();
-    Serial.printf("Upload: HTTP %d  T=%.1f H=%.1f Lux=%.0f\n", code, temp, hum, lux);
+    Serial.printf("Upload: HTTP %d  delta=%lu T=%.1f H=%.1f Lux=%.0f\n", code, delta, temp, hum, lux);
     http.end();
   }
 }

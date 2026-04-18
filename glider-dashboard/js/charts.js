@@ -61,9 +61,151 @@
       noData: { text: 'No data yet', style: { color: '#6b7280' } },
     });
     charts.hourly.render();
+
+    charts.luxRpm = new ApexCharts(document.getElementById('chart-lux-rpm'), {
+      chart: {
+        type: 'line',
+        height: 180,
+        background: CHART_THEME.background,
+        foreColor: CHART_THEME.foreColor,
+        toolbar: { show: false },
+        animations: { enabled: false },
+      },
+      series: [
+        { name: 'RPM', data: [] },
+        { name: 'Lux', data: [] },
+      ],
+      xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
+      yaxis: [
+        { seriesName: 'RPM', min: 0, labels: { formatter: v => v.toFixed(1) } },
+        {
+          seriesName: 'Lux',
+          opposite: true,
+          min: 0,
+          labels: { formatter: v => v.toFixed(0) },
+        },
+      ],
+      stroke: { curve: 'smooth', width: [2, 2], dashArray: [0, 4] },
+      colors: ['#39d353', '#fbbf24'],
+      grid: GRID,
+      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' }, shared: true },
+      legend: { labels: { colors: '#9ca3af' } },
+      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+    });
+    charts.luxRpm.render();
+
+    charts.env = new ApexCharts(document.getElementById('chart-env'), {
+      chart: {
+        type: 'line',
+        height: 180,
+        background: CHART_THEME.background,
+        foreColor: CHART_THEME.foreColor,
+        toolbar: { show: false },
+        animations: { enabled: false },
+      },
+      series: [
+        { name: 'Temp (°C)', data: [] },
+        { name: 'Humidity (%)', data: [] },
+      ],
+      xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
+      yaxis: [
+        {
+          seriesName: 'Temp (°C)',
+          min: 15,
+          max: 35,
+          labels: { formatter: v => v.toFixed(1) + '°' },
+        },
+        {
+          seriesName: 'Humidity (%)',
+          opposite: true,
+          min: 0,
+          max: 100,
+          labels: { formatter: v => v.toFixed(0) + '%' },
+        },
+      ],
+      annotations: {
+        yaxis: [
+          {
+            y: CONFIG.COMFORT_TEMP_MIN,
+            y2: CONFIG.COMFORT_TEMP_MAX,
+            fillColor: '#39d353',
+            opacity: 0.06,
+            label: { text: 'comfort zone', style: { color: '#39d353', background: 'transparent' } },
+          },
+        ],
+      },
+      stroke: { curve: 'smooth', width: [2, 2], dashArray: [0, 4] },
+      colors: ['#f87171', '#60a5fa'],
+      grid: GRID,
+      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' }, shared: true },
+      legend: { labels: { colors: '#9ca3af' } },
+      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+    });
+    charts.env.render();
+
+    charts.daily = new ApexCharts(document.getElementById('chart-daily'), {
+      chart: {
+        type: 'bar',
+        height: 180,
+        background: CHART_THEME.background,
+        foreColor: CHART_THEME.foreColor,
+        toolbar: { show: false },
+        animations: { enabled: false },
+      },
+      series: [{ name: 'Laps', data: [] }],
+      xaxis: { type: 'category' },
+      yaxis: { min: 0 },
+      colors: ['#39d353'],
+      plotOptions: { bar: { columnWidth: '60%', borderRadius: 2 } },
+      grid: GRID,
+      tooltip: TOOLTIP,
+      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+    });
+    charts.daily.render();
   }
 
   window.initCharts = initCharts;
-  window.updateCharts = function () {};
+
+  window.updateCharts = function updateCharts(data, range) {
+    if (!data) return;
+    const { rows, hourly, daily } = data;
+
+    const now = Date.now();
+    const cutoff = {
+      today: (() => {
+        const d = new Date(now + 8 * 3600 * 1000);
+        d.setUTCHours(0, 0, 0, 0);
+        return d.getTime() - 8 * 3600 * 1000;
+      })(),
+      '7d': now - 7 * 86400000,
+      '30d': now - 30 * 86400000,
+      all: 0,
+    }[range] ?? 0;
+
+    const filtered = rows.filter(r => r.ts.getTime() >= cutoff);
+
+    charts.rpm.updateSeries([{
+      name: 'RPM',
+      data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })),
+    }]);
+
+    charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
+
+    charts.luxRpm.updateSeries([
+      { name: 'RPM', data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })) },
+      { name: 'Lux', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lux })) },
+    ]);
+
+    charts.env.updateSeries([
+      { name: 'Temp (°C)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
+      { name: 'Humidity (%)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
+    ]);
+
+    charts.daily.updateSeries([{
+      name: 'Laps',
+      data: daily.map(d => ({ x: d.date, y: d.laps })),
+    }]);
+  };
+
   window._charts = charts;
 })();

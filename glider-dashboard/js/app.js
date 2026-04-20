@@ -23,18 +23,13 @@
   function updateCards(stats) {
     elLaps.textContent     = stats.todayLaps.toLocaleString();
     elDistance.textContent = fmtDistance(stats.todayDistanceM);
-    elRpm.textContent      = stats.currentRPM.toFixed(2);
+    elRpm.textContent      = stats.currentSpeedKmh.toFixed(1) + ' km/h';
     elTemp.textContent     = stats.latestTemp !== null ? stats.latestTemp.toFixed(1) + '°C' : '—';
     elHumidity.textContent = stats.latestHumidity !== null ? stats.latestHumidity.toFixed(0) + '%' : '—';
     elLux.textContent      = stats.latestLux !== null ? stats.latestLux.toFixed(0) + ' lux' : '—';
-
-    if (stats.isRunning) {
-      elStatus.textContent = '● running';
-      elStatus.classList.add('running');
-    } else {
-      elStatus.textContent = '○ sleeping';
-      elStatus.classList.remove('running');
-    }
+    elStatus.textContent = stats.activity.icon + ' ' + stats.activity.labelZh;
+    elStatus.className = 'status-pill ' + stats.activity.level;
+    document.body.classList.toggle('is-active', stats.currentSpeedKmh >= CONFIG.SPEED_THRESHOLDS.idle);
   }
 
   async function refresh() {

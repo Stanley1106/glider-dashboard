@@ -5,8 +5,24 @@
   };
   const GRID = { borderColor: '#1a2a1a', strokeDashArray: 3 };
   const TOOLTIP = { theme: 'dark' };
+  const NO_DATA = { text: 'No data yet', style: { color: '#6b7280' } };
 
   const charts = {};
+
+  function hasSeriesData(series) {
+    return series.some(item => Array.isArray(item.data) && item.data.length > 0);
+  }
+
+  function updateSeriesWithNoDataState(chart, series) {
+    const hasData = hasSeriesData(series);
+    chart.updateOptions({ noData: hasData ? { ...NO_DATA, text: '' } : NO_DATA }, false, false, false);
+    chart.updateSeries(series);
+
+    requestAnimationFrame(() => {
+      const noDataOverlay = chart.el?.querySelector('.apexcharts-text-nodata');
+      if (noDataOverlay) noDataOverlay.style.display = hasData ? 'none' : '';
+    });
+  }
 
   function initCharts() {
     charts.rpm = new ApexCharts(document.getElementById('chart-rpm'), {
@@ -27,7 +43,7 @@
       colors: ['#39d353'],
       grid: GRID,
       tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' } },
-      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+      noData: NO_DATA,
     });
     charts.rpm.render();
 
@@ -50,7 +66,7 @@
       plotOptions: { bar: { columnWidth: '70%', borderRadius: 2 } },
       grid: GRID,
       tooltip: TOOLTIP,
-      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+      noData: NO_DATA,
     });
     charts.hourly.render();
 
@@ -82,7 +98,7 @@
       grid: GRID,
       tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' }, shared: true },
       legend: { labels: { colors: '#9ca3af' } },
-      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+      noData: NO_DATA,
     });
     charts.luxRpm.render();
 
@@ -120,7 +136,7 @@
       grid: GRID,
       tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' }, shared: true },
       legend: { labels: { colors: '#9ca3af' } },
-      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+      noData: NO_DATA,
     });
     charts.env.render();
 
@@ -140,7 +156,7 @@
       plotOptions: { bar: { columnWidth: '60%', borderRadius: 2 } },
       grid: GRID,
       tooltip: TOOLTIP,
-      noData: { text: 'No data yet', style: { color: '#6b7280' } },
+      noData: NO_DATA,
     });
     charts.daily.render();
   }
@@ -166,24 +182,24 @@
 
     const filtered = rows.filter(r => r.ts.getTime() >= cutoff);
 
-    charts.rpm.updateSeries([{
+    updateSeriesWithNoDataState(charts.rpm, [{
       name: 'Laps',
       data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lapsDelta ?? 0 })),
     }]);
 
     charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
 
-    charts.luxRpm.updateSeries([
+    updateSeriesWithNoDataState(charts.luxRpm, [
       { name: 'RPM', data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })) },
       { name: 'Lux', data: filtered.filter(r => r.lux !== null).map(r => ({ x: r.ts.getTime(), y: r.lux })) },
     ]);
 
-    charts.env.updateSeries([
+    updateSeriesWithNoDataState(charts.env, [
       { name: 'Temp (°C)', data: filtered.filter(r => r.temperature !== null).map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
       { name: 'Humidity (%)', data: filtered.filter(r => r.humidity !== null).map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
     ]);
 
-    charts.daily.updateSeries([{
+    updateSeriesWithNoDataState(charts.daily, [{
       name: 'Laps',
       data: daily.map(d => ({ x: d.date, y: d.laps })),
     }]);

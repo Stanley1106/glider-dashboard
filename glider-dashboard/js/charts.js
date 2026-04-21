@@ -263,12 +263,12 @@
 
     updateAxisChart('luxRpm', [
       { name: 'RPM', data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })) },
-      { name: 'Lux', data: filtered.filter(r => r.lux !== null).map(r => ({ x: r.ts.getTime(), y: r.lux })) },
+      { name: 'Lux', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lux })) },
     ]);
 
     updateAxisChart('env', [
-      { name: 'Temp (°C)', data: filtered.filter(r => r.temperature !== null).map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
-      { name: 'Humidity (%)', data: filtered.filter(r => r.humidity !== null).map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
+      { name: 'Temp (°C)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
+      { name: 'Humidity (%)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
     ]);
 
     updateAxisChart('daily', [{

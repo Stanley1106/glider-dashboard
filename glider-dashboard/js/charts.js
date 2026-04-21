@@ -20,15 +20,42 @@
     return series.some(item => Array.isArray(item.data) && item.data.length > 0);
   }
 
+  function syncChartNoDataFlag(chart, isEmpty) {
+    if (!chart?.w?.globals) return;
+    chart.w.globals.noData = isEmpty;
+  }
+
+  function ensureChartToolbar(chart, isEmpty) {
+    const existingToolbar = chart?.w?.dom?.baseEl?.querySelector('.apexcharts-toolbar');
+
+    if (
+      isEmpty ||
+      !chart?.w?.config?.chart?.toolbar?.show ||
+      chart?.w?.globals?.allSeriesCollapsed
+    ) {
+      existingToolbar?.remove();
+      return;
+    }
+
+    if (!existingToolbar) {
+      chart.toolbar?.createToolbar();
+    }
+  }
+
   function updateSeriesWithNoDataState(chart, series) {
     const hasData = hasSeriesData(series);
-    chart.updateOptions({ noData: hasData ? { ...NO_DATA, text: '' } : NO_DATA }, false, false, false);
-    chart.updateSeries(series);
+    chart
+      .updateOptions({ noData: hasData ? { ...NO_DATA, text: '' } : NO_DATA }, false, false, false)
+      .then(() => chart.updateSeries(series))
+      .then(() => {
+        syncChartNoDataFlag(chart, !hasData);
+        ensureChartToolbar(chart, !hasData);
 
-    requestAnimationFrame(() => {
-      const noDataOverlay = chart.el?.querySelector('.apexcharts-text-nodata');
-      if (noDataOverlay) noDataOverlay.style.display = hasData ? 'none' : '';
-    });
+        requestAnimationFrame(() => {
+          const noDataOverlay = chart.el?.querySelector('.apexcharts-text-nodata');
+          if (noDataOverlay) noDataOverlay.style.display = hasData ? 'none' : '';
+        });
+      });
   }
 
   function initCharts() {

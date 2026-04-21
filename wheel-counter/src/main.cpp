@@ -117,14 +117,15 @@ void uploadTask(void* param) {
     String ts = getTimestamp();
     String url = String(SCRIPT_URL)
       + "?ts="          + ts
-      + "&laps="        + laps
+      + "&laps_delta="  + lapDelta
+      + "&laps_total="  + laps
       + "&temperature=" + temp
       + "&humidity="    + hum
       + "&lux="         + lux;
     http.begin(url);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     int code = http.GET();
-    Serial.printf("Upload: HTTP %d laps=%lu T=%.1f H=%.1f Lux=%.0f\n", code, laps, temp, hum, lux);
+    Serial.printf("Upload: HTTP %d laps_delta=%lu laps_total=%lu T=%.1f H=%.1f Lux=%.0f\n", code, lapDelta, laps, temp, hum, lux);
     http.end();
   }
 }

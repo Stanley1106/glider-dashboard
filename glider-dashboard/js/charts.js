@@ -61,7 +61,7 @@
         categories: Array.from({ length: 24 }, (_, i) => i),
         labels: { formatter: v => v + 'h' },
       },
-      yaxis: { min: 0 },
+      yaxis: { min: 0, max: 2 },
       colors: ['#39d353'],
       plotOptions: { bar: { columnWidth: '70%', borderRadius: 2 } },
       grid: GRID,
@@ -187,6 +187,10 @@
       data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lapsDelta ?? 0 })),
     }]);
 
+    const hourlyMax = hourly.length ? Math.max(...hourly) : 0;
+    charts.hourly.updateOptions({
+      yaxis: { min: 0, max: Math.max(2, Math.ceil(hourlyMax * 1.1)) },
+    }, false, false, false);
     charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
 
     updateSeriesWithNoDataState(charts.luxRpm, [

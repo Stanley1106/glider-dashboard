@@ -11,7 +11,7 @@
   function initCharts() {
     charts.rpm = new ApexCharts(document.getElementById('chart-rpm'), {
       chart: {
-        type: 'scatter',
+        type: 'line',
         height: 180,
         background: CHART_THEME.background,
         foreColor: CHART_THEME.foreColor,
@@ -22,20 +22,11 @@
       series: [{ name: 'Laps', data: [] }],
       xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
       yaxis: { min: 0, labels: { formatter: v => Math.round(v).toString() } },
-      markers: { size: 4, colors: ['#39d353'], strokeWidth: 0 },
+      stroke: { curve: 'smooth', width: 2 },
+      markers: { size: 0 },
       colors: ['#39d353'],
       grid: GRID,
-      tooltip: {
-        custom: ({ series, seriesIndex, dataPointIndex, w }) => {
-          const ts = w.globals.seriesX[0][dataPointIndex];
-          const laps = series[0][dataPointIndex];
-          const time = new Date(ts).toLocaleTimeString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' });
-          return '<div style="padding:8px 12px;background:#0d120d;border:1px solid #1a2a1a;border-radius:4px;font-family:monospace;font-size:12px">' +
-            '<div style="color:#39d353">' + laps + ' laps</div>' +
-            '<div style="color:#6b7280">' + time + '</div>' +
-            '</div>';
-        },
-      },
+      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' } },
       noData: { text: 'No data yet', style: { color: '#6b7280' } },
     });
     charts.rpm.render();

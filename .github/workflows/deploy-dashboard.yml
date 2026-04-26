@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/deploy-dashboard.yml"
-      - "glider-dashboard/**"
+      - "dashboard/**"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
       - name: Upload dashboard artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: glider-dashboard
+          path: dashboard
 
       - name: Deploy to GitHub Pages
         id: deployment

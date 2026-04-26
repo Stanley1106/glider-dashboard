@@ -20,7 +20,7 @@ There is no build step. Open [index.html](index.html) directly in a browser, or 
 Example:
 
 ```bash
-cd glider-dashboard
+cd dashboard
 python -m http.server 8000
 ```
 

@@ -34,7 +34,7 @@ Official references:
 Copy the example config and fill in local settings:
 
 ```powershell
-cd wheel-counter
+cd firmware
 copy src\config.example.h src\config.h
 ```
 
@@ -54,7 +54,7 @@ Edit `src/config.h`:
 This project uses PlatformIO.
 
 ```bash
-cd wheel-counter
+cd firmware
 pio run
 pio run --target upload
 pio device monitor

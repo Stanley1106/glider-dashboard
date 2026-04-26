@@ -1,6 +1,6 @@
 # Wheel Counter Enclosure
 
-Parametric OpenSCAD enclosure for the `wheel-counter/` hardware stack.
+Parametric OpenSCAD enclosure for the `firmware/` hardware stack.
 
 Files:
 

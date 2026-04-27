@@ -6,5 +6,6 @@ const CONFIG = {
   COMFORT_TEMP_MIN: 24,
   COMFORT_TEMP_MAX: 27,
   SMOOTHING_WINDOW: 3,
-  SPEED_THRESHOLDS: { idle: 2, active: 5, running: 8 },
+  SPEED_THRESHOLDS: { active: 0.3, sprinting: 1.5 },
+  HEATMAP: { CELL_PX: 11, GAP_PX: 2 },
 };

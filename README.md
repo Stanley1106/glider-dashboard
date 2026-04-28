@@ -2,10 +2,11 @@
 
 Monorepo for a sugar glider wheel activity tracker.
 
-The system has three parts:
+The system has four parts:
 
 - [dashboard/](dashboard/) - static web dashboard deployed to GitHub Pages
 - [firmware/](firmware/) - ESP32-C3 firmware that counts wheel laps and uploads readings
+- [apps-script/](apps-script/) - Google Apps Script that receives uploads and maintains the Google Sheet
 - [enclosure/](enclosure/) - OpenSCAD enclosure model for the hardware stack
 
 ## Data Flow
@@ -29,6 +30,16 @@ The dashboard is plain HTML/CSS/JavaScript. There is no build step; open [dashbo
 See [firmware/README.md](firmware/README.md).
 
 The firmware is a PlatformIO project for ESP32-C3 using the Arduino framework. Local Wi-Fi credentials and endpoint settings belong in `firmware/src/config.h`, copied from `config.example.h`.
+
+### Apps Script
+
+[apps-script/Code.gs](apps-script/Code.gs) is the Google Apps Script web app deployed as a `doGet` endpoint. On each ESP32 upload it:
+
+1. Appends a raw row to the `live` sheet and prunes rows older than 2 days.
+2. Upserts the current hour's aggregate row in `hr_summary` (kept 31 days).
+3. Upserts the current day's aggregate row in `daily_summary` (kept forever).
+
+The dashboard reads all three sheets in parallel and routes each time range to the appropriate sheet: `today` uses raw live rows, `7d`/`30d` use hourly aggregates, `all` uses daily aggregates.
 
 ### Enclosure
 

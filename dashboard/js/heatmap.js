@@ -52,7 +52,7 @@
     const today = new Date();
     const jan1 = new Date(year, 0, 1);
     const latest = latestDataDateForYear(year);
-    const end = year === today.getFullYear() && latest > today ? today : latest;
+    const end = year === today.getFullYear() ? today : latest;
     const dayIndex = Math.max(0, Math.floor((end - jan1) / 86400000));
     return Math.max(1, Math.ceil((offset + dayIndex + 1) / 7));
   }

@@ -31,8 +31,8 @@ function doGet(e) {
   const hum  = Number(p.humidity    ?? 0);
   const lux  = Number(p.lux         ?? 0);
 
-  const live = getOrCreateSheet('live', ['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux', 'n']);
-  live.appendRow([ts.toISOString(), laps, temp, hum, lux, 1]);
+  const live = getOrCreateSheet('live', ['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux']);
+  live.appendRow([ts, laps, temp, hum, lux]);
   pruneSheet(live, LIVE_DAYS);
 
   const hr = getOrCreateSheet('hr_summary', ['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux', 'n'], true);

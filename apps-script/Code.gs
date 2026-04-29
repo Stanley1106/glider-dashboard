@@ -45,6 +45,10 @@ function doGet(e) {
   return ContentService.createTextOutput('OK');
 }
 
+function round1(x) {
+  return Math.round(x * 10) / 10;
+}
+
 function upsertAggregate(sheet, key, laps, temp, hum, lux) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
@@ -53,14 +57,14 @@ function upsertAggregate(sheet, key, laps, temp, hum, lux) {
     const newN = n + 1;
     sheet.getRange(i + 1, 2, 1, 5).setValues([[
       Number(data[i][1]) + laps,
-      (Number(data[i][2]) * n + temp) / newN,
-      (Number(data[i][3]) * n + hum)  / newN,
-      (Number(data[i][4]) * n + lux)  / newN,
+      round1((Number(data[i][2]) * n + temp) / newN),
+      round1((Number(data[i][3]) * n + hum)  / newN),
+      round1((Number(data[i][4]) * n + lux)  / newN),
       newN,
     ]]);
     return;
   }
-  sheet.appendRow([key, laps, temp, hum, lux, 1]);
+  sheet.appendRow([key, laps, round1(temp), round1(hum), round1(lux), 1]);
 }
 
 function rowDate(cellValue) {

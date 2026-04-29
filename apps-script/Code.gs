@@ -1,24 +1,26 @@
 const LIVE_DAYS = 2;
 const HR_DAYS = 31;
 
-function getOrCreateSheet(name) {
+const TZ = 'Asia/Taipei';
+
+function getOrCreateSheet(name, headers, textKeyColumn) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    sheet.appendRow(['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux', 'n']);
+    sheet.appendRow(headers);
+    if (textKeyColumn) sheet.getRange('A:A').setNumberFormat('@');
   }
   return sheet;
 }
 
-function isoHourStart(ts) {
-  const d = new Date(ts);
-  d.setMinutes(0, 0, 0);
-  return d.toISOString().slice(0, 19); // "2025-04-28T14:00:00"
+// Prefix keeps Sheets from auto-parsing the cell as a Date.
+function hrKey(ts) {
+  return 'h_' + Utilities.formatDate(new Date(ts), TZ, "yyyy-MM-dd'T'HH");
 }
 
-function isoDayStart(ts) {
-  return new Date(ts).toISOString().slice(0, 10); // "2025-04-28"
+function dayKey(ts) {
+  return 'd_' + Utilities.formatDate(new Date(ts), TZ, 'yyyy-MM-dd');
 }
 
 function doGet(e) {
@@ -29,28 +31,24 @@ function doGet(e) {
   const hum  = Number(p.humidity    ?? 0);
   const lux  = Number(p.lux         ?? 0);
 
-  // 1. live — raw rows, keep 2 days
-  const live = getOrCreateSheet('live');
+  const live = getOrCreateSheet('live', ['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux', 'n']);
   live.appendRow([ts.toISOString(), laps, temp, hum, lux, 1]);
   pruneSheet(live, LIVE_DAYS);
 
-  // 2. hr_summary — hourly aggregate, keep 31 days
-  const hr = getOrCreateSheet('hr_summary');
-  upsertAggregate(hr, isoHourStart(ts), laps, temp, hum, lux);
+  const hr = getOrCreateSheet('hr_summary', ['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux', 'n'], true);
+  upsertAggregate(hr, hrKey(ts), laps, temp, hum, lux);
   pruneSheet(hr, HR_DAYS);
 
-  // 3. daily_summary — daily aggregate, keep forever
-  const daily = getOrCreateSheet('daily_summary');
-  upsertAggregate(daily, isoDayStart(ts), laps, temp, hum, lux);
+  const daily = getOrCreateSheet('daily_summary', ['timestamp', 'laps_delta', 'temperature', 'humidity', 'lux', 'n'], true);
+  upsertAggregate(daily, dayKey(ts), laps, temp, hum, lux);
 
   return ContentService.createTextOutput('OK');
 }
 
-// Find matching key row and update incrementally; append if not found.
 function upsertAggregate(sheet, key, laps, temp, hum, lux) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).slice(0, key.length) !== key) continue;
+    if (String(data[i][0]) !== key) continue;
     const n    = Number(data[i][5]);
     const newN = n + 1;
     sheet.getRange(i + 1, 2, 1, 5).setValues([[
@@ -65,13 +63,20 @@ function upsertAggregate(sheet, key, laps, temp, hum, lux) {
   sheet.appendRow([key, laps, temp, hum, lux, 1]);
 }
 
-// Delete rows older than `days` days (assumes data is in ascending order).
+function rowDate(cellValue) {
+  if (cellValue instanceof Date) return cellValue;
+  const s = String(cellValue);
+  if (s.startsWith('h_')) return new Date(s.slice(2) + ':00:00+08:00');
+  if (s.startsWith('d_')) return new Date(s.slice(2) + 'T00:00:00+08:00');
+  return new Date(s);
+}
+
 function pruneSheet(sheet, days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const data = sheet.getDataRange().getValues();
   let lastOldRow = 0;
   for (let i = 1; i < data.length; i++) {
-    if (new Date(data[i][0]) < cutoff) lastOldRow = i + 1;
+    if (rowDate(data[i][0]) < cutoff) lastOldRow = i + 1;
     else break;
   }
   if (lastOldRow > 1) sheet.deleteRows(2, lastOldRow - 1);

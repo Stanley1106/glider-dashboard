@@ -14,6 +14,13 @@
     return s.trim().replace(/^"|"$/g, '');
   }
 
+  function parseTimestamp(raw) {
+    const s = (raw || '').trim();
+    if (s.startsWith('h_')) return new Date(s.slice(2) + ':00:00+08:00');
+    if (s.startsWith('d_')) return new Date(s.slice(2) + 'T00:00:00+08:00');
+    return new Date(s);
+  }
+
   function parseCsv(text) {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
@@ -33,7 +40,7 @@
       const cols = lines[i].split(',').map(unquote);
       if (cols.length < 2) continue;
 
-      const ts = new Date((cols[index.ts] || '').trim());
+      const ts = parseTimestamp(cols[index.ts]);
       const lapsDelta = parseInt((cols[index.laps] || '').trim(), 10);
       if (Number.isNaN(ts.getTime()) || Number.isNaN(lapsDelta)) continue;
 
